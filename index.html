@@ -616,9 +616,8 @@ textarea {
     top: 0;
     left: 0;
     right: 0;
-    width: 178mm;
-    max-width: 100%;
-    height: 205mm;
+    width: 100%;
+    height: 272mm;
     min-height: 0;
     padding: 0;
     margin: 0;
@@ -633,80 +632,52 @@ textarea {
     page-break-inside: avoid;
   }
 
-  .paper-title {
-    height: 13mm;
-    padding-bottom: 1mm;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 1mm;
-  }
+  .paper-title { height: 10mm; padding-bottom: 2mm; min-height: 0; }
 
-  .paper-title h3 {
-    font-size: 18px;
-    line-height: 1.05;
-  }
-  .paper-date {
-    font-size: 9px;
-    line-height: 1;
-    justify-self: start;
-    white-space: normal;
-  }
+  .paper-title h3 { font-size: 23px; }
+  .paper-date { font-size: 12px; }
   .basic-info {
-    height: 20mm;
+    height: 28mm;
     border-width: 1.5px;
-    margin-top: 1mm;
-    margin-bottom: 1mm;
+    margin-top: 2mm;
+    margin-bottom: 2mm;
   }
-  .info-cell {
-    min-height: 0;
-    padding: 1px 5px;
-    align-content: start;
-    overflow: hidden;
-  }
-  .cell-label { font-size: 8px; line-height: 1; }
-  .cell-value {
-    font-size: 12px;
-    line-height: 1.08;
-    max-height: 12mm;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
+  .info-cell { min-height: 0; padding: 2px 6px; }
+  .cell-label { font-size: 10.5px; }
+  .cell-value { font-size: 20px; }
   .main-photo {
     display: grid;
-    grid-template-rows: 6mm 61mm;
-    height: 67mm;
+    grid-template-rows: 8mm 111mm;
+    height: 119mm;
     min-height: 0;
-    margin-bottom: 1mm;
+    margin-bottom: 2mm;
     overflow: hidden;
   }
   .main-photo .block-title {
-    height: 6mm;
-    font-size: 10px;
-    padding: 1.2mm 6px 0;
+    height: 8mm;
+    font-size: 14px;
+    padding: 2mm 8px 0;
     overflow: hidden;
   }
   .main-photo .photo-stage {
-    height: 61mm;
+    height: 111mm;
     min-height: 0;
     overflow: hidden;
   }
   .main-photo .photo-stage img {
     width: 100%;
-    height: 61mm;
-    max-height: 61mm;
+    height: 111mm;
+    max-height: 111mm;
     object-fit: contain;
   }
   .photo-stage { height: auto; min-height: 0; }
   .detail-row {
     display: grid;
-    height: 50mm;
+    height: 74mm;
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr) 42mm;
-    gap: 3px;
-    margin-bottom: 1mm;
+    grid-template-columns: minmax(0, 1fr) 52mm;
+    gap: 5px;
+    margin-bottom: 2mm;
   }
   .detail-panel,
   .package-panel,
@@ -714,45 +685,45 @@ textarea {
     min-height: 0;
     overflow: hidden;
   }
-  .block-title { font-size: 9.5px; padding: 2px 5px; }
+  .block-title { font-size: 13px; padding: 4px 8px; }
   .material-box {
-    height: 22mm;
+    height: 32mm;
     min-height: 0;
     overflow: hidden;
-    font-size: 10px;
+    font-size: 14.5px;
     font-weight: 800;
-    line-height: 1.12;
-    padding: 2px 5px;
+    line-height: 1.25;
+    padding: 3px 6px;
   }
   .check-grid {
-    height: 25mm;
+    height: 34mm;
     overflow: hidden;
   }
-  .check-item { min-height: 0; height: 8.33mm; font-size: 9.5px; font-weight: 800; padding: 1px 4px; }
-  .checkbox { width: 8px; height: 8px; border-width: 1.2px; }
-  .package-photo { height: 32mm; min-height: 0; }
-  .package-photo .photo-stage { height: 26mm; min-height: 0; }
+  .check-item { min-height: 0; height: 11.33mm; font-size: 13px; font-weight: 800; padding: 2px 5px; }
+  .checkbox { width: 12px; height: 12px; border-width: 1.5px; }
+  .package-photo { height: 45mm; min-height: 0; }
+  .package-photo .photo-stage { height: 36mm; min-height: 0; }
   .notes-panel {
     display: block;
-    height: 12mm;
-    margin-bottom: 1mm;
+    height: 18mm;
+    margin-bottom: 2mm;
   }
   .notes-text {
-    height: 7mm;
+    height: 11mm;
     min-height: 0;
     overflow: hidden;
-    font-size: 9.5px;
+    font-size: 13px;
     font-weight: 800;
-    line-height: 1.1;
-    padding: 2px 5px;
+    line-height: 1.25;
+    padding: 3px 6px;
   }
-  .print-footer { height: 9mm; }
+  .print-footer { height: 16mm; }
   .sign-cell {
     min-height: 0;
-    height: 9mm;
-    font-size: 9.5px;
+    height: 16mm;
+    font-size: 14px;
     font-weight: 900;
-    padding: 2px;
+    padding: 4px;
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -1321,7 +1292,6 @@ function showToast(message) {
 }
 
 function fitTextElement(element, baseSize, minSize) {
-  if (!element) return;
   element.style.fontSize = `${baseSize}px`;
   let size = baseSize;
   while (size > minSize && element.scrollHeight > element.clientHeight + 1) {
@@ -1331,11 +1301,8 @@ function fitTextElement(element, baseSize, minSize) {
 }
 
 function fitPreviewText() {
-  document.querySelectorAll(".basic-info .cell-value").forEach((element) => {
-    fitTextElement(element, 12, 7);
-  });
-  fitTextElement(document.querySelector('[data-preview="materialType"]'), 10, 7);
-  fitTextElement(document.querySelector('[data-preview="notes"]'), 9.5, 7);
+  fitTextElement(document.querySelector('[data-preview="materialType"]'), 14.5, 8.5);
+  fitTextElement(document.querySelector('[data-preview="notes"]'), 13, 8);
   [
     "expirySticker",
     "noshi",
@@ -1345,7 +1312,7 @@ function fitPreviewText() {
     "chopsticksMethod"
   ].forEach((name) => {
     document.querySelectorAll(`[data-preview="${name}"]`).forEach((element) => {
-      fitTextElement(element, 9.5, 7);
+      fitTextElement(element, 13, 8);
     });
   });
 }
