@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大口注文 製造指示書作成ツール</title>
+<style>
+:root {
+  --bg: #f5f6f2;
+  --surface: #ffffff;
+  --ink: #1f2a2e;
+  --muted: #66747a;
+  --line: #d9e0de;
+  --soft: #edf3f1;
+  --accent: #1d7b72;
+  --accent-dark: #145d56;
+  --warn: #b65f2a;
+  --danger: #b43b3b;
+  --paper-line: #20292d;
+  --shadow: 0 10px 30px rgba(28, 49, 53, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Yu Gothic", "Meiryo", "Hiragino Kaku Gothic ProN", Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 58px;
+  padding: 0 22px;
+  background: #203238;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(360px, 430px) minmax(620px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.sidebar {
+  display: grid;
+  gap: 14px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.panel-head {
+  min-height: 46px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #fafbf9;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.panel-body {
+  padding: 14px 16px 16px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  min-height: 38px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+button:hover { background: var(--accent-dark); }
+button:active { transform: translateY(1px); }
+
+button.secondary {
+  background: #e7eeeb;
+  color: var(--ink);
+}
+
+button.secondary:hover { background: #dbe6e2; }
+
+button.danger {
+  background: #f0e1df;
+  color: var(--danger);
+}
+
+button.danger:hover {
+  background: #e8cfcb;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field,
+.field-wide {
+  display: grid;
+  gap: 6px;
+}
+
+.field-wide { grid-column: 1 / -1; }
+
+label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 11px;
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(29, 123, 114, 0.14);
+}
+
+textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.photo-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.photo-box {
+  border: 1px dashed #b8c7c3;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfb;
+  display: grid;
+  gap: 8px;
+}
+
+.photo-box img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--soft);
+}
+
+.photo-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.photo-actions button {
+  flex: 1;
+  min-height: 32px;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.order-list {
+  display: grid;
+  gap: 8px;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.order-item {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.order-item.active {
+  border-color: var(--accent);
+  background: var(--soft);
+}
+
+.order-title {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.order-meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.empty-list {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 10px 2px;
+}
+
+.preview-wrap {
+  position: sticky;
+  top: 78px;
+}
+
+.preview-shell {
+  background: #dfe7e4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.preview-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.preview-top h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.paper {
+  width: min(100%, 794px);
+  min-height: 1000px;
+  margin: 0 auto;
+  padding: 26px;
+  background: white;
+  color: #10181b;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  display: grid;
+  grid-template-rows: auto auto minmax(270px, 1fr) auto auto;
+  gap: 10px;
+}
+
+.paper-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--paper-line);
+}
+
+.paper-title h3 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.paper-date {
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.basic-info {
+  display: grid;
+  grid-template-columns: 1.2fr 0.95fr 0.75fr;
+  border: 2px solid var(--paper-line);
+}
+
+.info-cell {
+  min-height: 50px;
+  padding: 7px 9px;
+  border-right: 1px solid var(--paper-line);
+  display: grid;
+  gap: 3px;
+  align-content: center;
+}
+
+.info-cell:nth-child(3n) { border-right: 0; }
+.info-cell.wide { grid-column: span 2; }
+
+.cell-label {
+  color: #4d5a5f;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cell-value {
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.main-photo {
+  border: 2px solid var(--paper-line);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 275px;
+}
+
+.block-title {
+  padding: 6px 10px;
+  background: #e9efed;
+  border-bottom: 1px solid var(--paper-line);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.photo-stage {
+  min-height: 235px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #f8faf9;
+}
+
+.photo-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.placeholder {
+  color: #718084;
+  font-size: 20px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 245px;
+  gap: 10px;
+}
+
+.detail-panel,
+.package-panel,
+.notes-panel {
+  border: 2px solid var(--paper-line);
+  min-width: 0;
+}
+
+.material-box {
+  padding: 9px 10px;
+  min-height: 72px;
+  font-size: 16px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.check-grid {
+  border-top: 1px solid var(--paper-line);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.check-item {
+  min-height: 37px;
+  padding: 6px 8px;
+  border-right: 1px solid var(--paper-line);
+  border-bottom: 1px solid var(--paper-line);
+  font-size: 14px;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.check-item:nth-child(2n) { border-right: 0; }
+.check-item:nth-last-child(-n + 2) { border-bottom: 0; }
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #111;
+  flex: 0 0 auto;
+}
+
+.package-photo {
+  height: 220px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.package-photo .photo-stage {
+  min-height: 170px;
+}
+
+.package-photo .placeholder {
+  font-size: 15px;
+}
+
+.notes-text {
+  min-height: 76px;
+  padding: 9px 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.print-footer {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border: 2px solid var(--paper-line);
+  border-top: 0;
+}
+
+.sign-cell {
+  min-height: 42px;
+  padding: 6px;
+  border-top: 2px solid var(--paper-line);
+  border-right: 1px solid var(--paper-line);
+  font-size: 12px;
+  color: #4d5a5f;
+}
+
+.sign-cell:last-child { border-right: 0; }
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 40;
+  transform: translateY(90px);
+  opacity: 0;
+  background: #203238;
+  color: #fff;
+  border-radius: 7px;
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 13px;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+@media (max-width: 1080px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-wrap {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  header {
+    height: auto;
+    min-height: 58px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .app { padding: 12px; }
+  .field-grid,
+  .photo-inputs,
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-shell { padding: 8px; }
+
+  .paper {
+    padding: 14px;
+    min-height: auto;
+  }
+
+  .paper-title,
+  .detail-row {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .basic-info {
+    grid-template-columns: 1fr;
+  }
+
+  .info-cell,
+  .info-cell:nth-child(3n) {
+    border-right: 0;
+    border-bottom: 1px solid var(--paper-line);
+  }
+
+  .info-cell:last-child { border-bottom: 0; }
+  .info-cell.wide { grid-column: auto; }
+  .check-grid { grid-template-columns: 1fr; }
+  .check-item { border-right: 0; }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
+@media print {
+  html,
+  body {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body {
+    background: white;
+  }
+
+  header,
+  .sidebar,
+  .preview-top,
+  .toast {
+    display: none !important;
+  }
+
+  .app {
+    display: block;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+    height: 0;
+    overflow: visible;
+  }
+
+  .preview-wrap,
+  .preview-shell {
+    position: static;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+    height: 0;
+    overflow: visible;
+  }
+
+  .paper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 272mm;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    display: block;
+    overflow: hidden;
+    break-after: avoid;
+    break-before: avoid;
+    break-inside: avoid;
+    page-break-after: avoid;
+    page-break-before: avoid;
+    page-break-inside: avoid;
+  }
+
+  .paper-title { height: 10mm; padding-bottom: 2mm; min-height: 0; }
+
+  .paper-title h3 { font-size: 23px; }
+  .paper-date { font-size: 12px; }
+  .basic-info {
+    height: 28mm;
+    border-width: 1.5px;
+    margin-top: 2mm;
+    margin-bottom: 2mm;
+  }
+  .info-cell { min-height: 0; padding: 2px 6px; }
+  .cell-label { font-size: 10.5px; }
+  .cell-value { font-size: 20px; }
+  .main-photo {
+    display: grid;
+    grid-template-rows: 8mm 111mm;
+    height: 119mm;
+    min-height: 0;
+    margin-bottom: 2mm;
+    overflow: hidden;
+  }
+  .main-photo .block-title {
+    height: 8mm;
+    font-size: 14px;
+    padding: 2mm 8px 0;
+    overflow: hidden;
+  }
+  .main-photo .photo-stage {
+    height: 111mm;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .main-photo .photo-stage img {
+    width: 100%;
+    height: 111mm;
+    max-height: 111mm;
+    object-fit: contain;
+  }
+  .photo-stage { height: auto; min-height: 0; }
+  .detail-row {
+    display: grid;
+    height: 74mm;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) 52mm;
+    gap: 5px;
+    margin-bottom: 2mm;
+  }
+  .detail-panel,
+  .package-panel,
+  .notes-panel {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .block-title { font-size: 13px; padding: 4px 8px; }
+  .material-box {
+    height: 32mm;
+    min-height: 0;
+    overflow: hidden;
+    font-size: 14.5px;
+    font-weight: 800;
+    line-height: 1.25;
+    padding: 3px 6px;
+  }
+  .check-grid {
+    height: 34mm;
+    overflow: hidden;
+  }
+  .check-item { min-height: 0; height: 11.33mm; font-size: 13px; font-weight: 800; padding: 2px 5px; }
+  .checkbox { width: 12px; height: 12px; border-width: 1.5px; }
+  .package-photo { height: 45mm; min-height: 0; }
+  .package-photo .photo-stage { height: 36mm; min-height: 0; }
+  .notes-panel {
+    display: block;
+    height: 18mm;
+    margin-bottom: 2mm;
+  }
+  .notes-text {
+    height: 11mm;
+    min-height: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.25;
+    padding: 3px 6px;
+  }
+  .print-footer { height: 16mm; }
+  .sign-cell {
+    min-height: 0;
+    height: 16mm;
+    font-size: 14px;
+    font-weight: 900;
+    padding: 4px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: center;
+  }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>大口注文 製造指示書作成ツール</h1>
+  <div class="status-pill" id="saveStatus">未保存</div>
+</header>
+
+<main class="app">
+  <section class="sidebar">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>操作</h2>
+      </div>
+      <div class="panel-body">
+        <div class="toolbar">
+          <button id="saveBtn" type="button">保存</button>
+          <button id="printBtn" type="button">印刷/PDF</button>
+          <button id="newBtn" class="secondary" type="button">新規</button>
+          <button id="copyBtn" class="secondary" type="button">複製</button>
+          <button id="resetBtn" class="secondary" type="button">入力リセット</button>
+          <button id="deleteBtn" class="danger" type="button">削除</button>
+        </div>
+        <p class="hint">PDFは「印刷/PDF」からプリンターの保存先でPDFを選ぶと作成できます。</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>保存した注文</h2>
+        <span class="hint" id="countLabel">0件</span>
+      </div>
+      <div class="panel-body">
+        <div class="order-list" id="orderList"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>入力フォーム</h2>
+      </div>
+      <div class="panel-body">
+        <form id="orderForm" class="field-grid">
+          <div class="field">
+            <label for="customerName">お客様名</label>
+            <input id="customerName" name="customerName" autocomplete="off" placeholder="例：山田商事 様">
+          </div>
+          <div class="field">
+            <label for="productName">商品名</label>
+            <input id="productName" name="productName" autocomplete="off" placeholder="例：特注弁当">
+          </div>
+          <div class="field">
+            <label for="deliveryDate">納品日</label>
+            <input id="deliveryDate" name="deliveryDate" type="date">
+          </div>
+          <div class="field">
+            <label for="deliveryTime">納品時間</label>
+            <input id="deliveryTime" name="deliveryTime" autocomplete="off" placeholder="例：10:00～10:45">
+          </div>
+          <div class="field">
+            <label for="quantity">個数</label>
+            <input id="quantity" name="quantity" type="number" min="1" inputmode="numeric" placeholder="例：120">
+          </div>
+          <div class="field">
+            <label for="expirySticker">消費期限シール</label>
+            <select id="expirySticker" name="expirySticker">
+              <option value="">選択してください</option>
+              <option>貼る</option>
+              <option>貼らない</option>
+              <option>時間入力あり</option>
+            </select>
+          </div>
+          <div class="field-wide">
+            <label>写真</label>
+            <div class="photo-inputs">
+              <div class="photo-box">
+                <label for="insidePhotoInput">商品の中身写真</label>
+                <input id="insidePhotoInput" type="file" accept="image/*">
+                <img id="insideThumb" alt="商品の中身写真プレビュー">
+                <div class="photo-actions">
+                  <button id="clearInsidePhoto" class="secondary" type="button">写真を外す</button>
+                </div>
+              </div>
+              <div class="photo-box">
+                <label for="packagePhotoInput">外装写真</label>
+                <input id="packagePhotoInput" type="file" accept="image/*">
+                <img id="packageThumb" alt="外装写真プレビュー">
+                <div class="photo-actions">
+                  <button id="clearPackagePhoto" class="secondary" type="button">写真を外す</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field-wide">
+            <label for="materialType">材料の種類</label>
+            <textarea id="materialType" name="materialType" maxlength="150" placeholder="約150文字まで入力できます"></textarea>
+          </div>
+          <div class="field">
+            <label for="noshi">のし</label>
+            <input id="noshi" name="noshi" placeholder="例：あり / 御礼">
+          </div>
+          <div class="field">
+            <label for="rubberBand">輪ゴム</label>
+            <input id="rubberBand" name="rubberBand" placeholder="例：あり / 赤輪ゴム / 2本掛け">
+          </div>
+          <div class="field-wide">
+            <label for="sorting">仕分け</label>
+            <input id="sorting" name="sorting" placeholder="例：部署ごとに10個ずつ">
+          </div>
+          <div class="field">
+            <label for="chopsticksType">箸の種類</label>
+            <input id="chopsticksType" name="chopsticksType" placeholder="例：竹箸">
+          </div>
+          <div class="field">
+            <label for="chopsticksMethod">箸の付け方</label>
+            <input id="chopsticksMethod" name="chopsticksMethod" placeholder="例：袋の外に同梱">
+          </div>
+          <div class="field-wide">
+            <label for="notes">備考</label>
+            <textarea id="notes" name="notes" placeholder="現場共有したい注意点"></textarea>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="preview-wrap">
+    <div class="preview-shell">
+      <div class="preview-top">
+        <h2>A4印刷プレビュー</h2>
+        <button id="printBtnTop" type="button">印刷/PDF</button>
+      </div>
+      <article class="paper" id="printPaper" aria-label="製造指示書プレビュー">
+        <div class="paper-title">
+          <h3>大口注文 製造指示書</h3>
+          <div class="paper-date" id="previewCreated">作成日：--</div>
+        </div>
+
+        <div class="basic-info">
+          <div class="info-cell">
+            <span class="cell-label">お客様名</span>
+            <span class="cell-value" data-preview="customerName">未入力</span>
+          </div>
+          <div class="info-cell">
+            <span class="cell-label">納品日</span>
+            <span class="cell-value" data-preview="deliveryDate">未入力</span>
+          </div>
+          <div class="info-cell">
+            <span class="cell-label">納品時間</span>
+            <span class="cell-value" data-preview="deliveryTime">未入力</span>
+          </div>
+          <div class="info-cell wide">
+            <span class="cell-label">商品名</span>
+            <span class="cell-value" data-preview="productName">未入力</span>
+          </div>
+          <div class="info-cell">
+            <span class="cell-label">個数</span>
+            <span class="cell-value" data-preview="quantity">未入力</span>
+          </div>
+        </div>
+
+        <section class="main-photo">
+          <div class="block-title">商品の中身写真</div>
+          <div class="photo-stage">
+            <img id="insidePreview" alt="商品の中身写真">
+            <div id="insidePlaceholder" class="placeholder">商品の中身写真</div>
+          </div>
+        </section>
+
+        <div class="detail-row">
+          <section class="detail-panel">
+            <div class="block-title">材料・確認項目</div>
+            <div class="material-box" data-preview="materialType">材料の種類：未入力</div>
+            <div class="check-grid">
+              <div class="check-item"><span class="checkbox"></span><span data-preview="expirySticker">消費期限シール：未入力</span></div>
+              <div class="check-item"><span class="checkbox"></span><span data-preview="noshi">のし：未入力</span></div>
+              <div class="check-item"><span class="checkbox"></span><span data-preview="rubberBand">輪ゴム：未入力</span></div>
+              <div class="check-item"><span class="checkbox"></span><span data-preview="sorting">仕分け：未入力</span></div>
+              <div class="check-item"><span class="checkbox"></span><span data-preview="chopsticksType">箸の種類：未入力</span></div>
+              <div class="check-item"><span class="checkbox"></span><span data-preview="chopsticksMethod">箸の付け方：未入力</span></div>
+            </div>
+          </section>
+          <section class="package-panel package-photo">
+            <div class="block-title">外装写真</div>
+            <div class="photo-stage">
+              <img id="packagePreview" alt="外装写真">
+              <div id="packagePlaceholder" class="placeholder">外装写真</div>
+            </div>
+          </section>
+        </div>
+
+        <section class="notes-panel">
+          <div class="block-title">備考</div>
+          <div class="notes-text" data-preview="notes">未入力</div>
+        </section>
+
+        <div class="print-footer">
+          <div class="sign-cell">食材発注</div>
+          <div class="sign-cell">包材発注</div>
+          <div class="sign-cell">受注</div>
+          <div class="sign-cell">調理</div>
+          <div class="sign-cell">盛付</div>
+          <div class="sign-cell">最終</div>
+        </div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = "chikusui_large_order_instructions_v1";
+const form = document.getElementById("orderForm");
+const saveStatus = document.getElementById("saveStatus");
+const orderList = document.getElementById("orderList");
+const countLabel = document.getElementById("countLabel");
+const toast = document.getElementById("toast");
+
+const fields = [
+  "customerName",
+  "deliveryDate",
+  "deliveryTime",
+  "productName",
+  "quantity",
+  "materialType",
+  "expirySticker",
+  "noshi",
+  "rubberBand",
+  "sorting",
+  "chopsticksType",
+  "chopsticksMethod",
+  "notes"
+];
+
+let orders = loadOrders();
+let currentId = orders[0]?.id || createId();
+let photoData = { insidePhoto: "", packagePhoto: "" };
+let isDirty = false;
+
+function createId() {
+  return `order-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function loadOrders() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistOrders() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+}
+
+function todayText() {
+  return new Date().toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+}
+
+function formatDate(value) {
+  if (!value) return "未入力";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${Number(month)}/${Number(day)}（${weekdays[date.getDay()]}）`;
+}
+
+function formatTime(value) {
+  return value || "未入力";
+}
+
+function valueOrBlank(value) {
+  return String(value || "").trim();
+}
+
+function valueOrDefault(value, fallback = "未入力") {
+  return valueOrBlank(value) || fallback;
+}
+
+function getFormData() {
+  const data = {};
+  fields.forEach((name) => {
+    data[name] = document.getElementById(name).value;
+  });
+  return {
+    id: currentId,
+    ...data,
+    insidePhoto: photoData.insidePhoto,
+    packagePhoto: photoData.packagePhoto
+  };
+}
+
+function setFormData(data = {}) {
+  fields.forEach((name) => {
+    document.getElementById(name).value = data[name] || "";
+  });
+  photoData = {
+    insidePhoto: data.insidePhoto || "",
+    packagePhoto: data.packagePhoto || ""
+  };
+  updatePhotoThumbs();
+  updatePreview();
+}
+
+function buildSavedOrder(existing = {}) {
+  const now = new Date().toISOString();
+  return {
+    ...existing,
+    ...getFormData(),
+    createdAt: existing.createdAt || now,
+    updatedAt: now
+  };
+}
+
+function saveCurrent() {
+  const existingIndex = orders.findIndex((order) => order.id === currentId);
+  const existing = existingIndex >= 0 ? orders[existingIndex] : {};
+  const saved = buildSavedOrder(existing);
+  if (existingIndex >= 0) {
+    orders.splice(existingIndex, 1, saved);
+  } else {
+    orders.unshift(saved);
+  }
+  persistOrders();
+  isDirty = false;
+  updateStatus();
+  renderOrderList();
+  showToast("保存しました");
+}
+
+function newOrder() {
+  currentId = createId();
+  photoData = { insidePhoto: "", packagePhoto: "" };
+  form.reset();
+  isDirty = false;
+  updatePhotoThumbs();
+  updatePreview();
+  updateStatus();
+  renderOrderList();
+}
+
+function duplicateOrder() {
+  const base = getFormData();
+  currentId = createId();
+  const now = new Date().toISOString();
+  const copy = {
+    ...base,
+    id: currentId,
+    customerName: base.customerName ? `${base.customerName}（複製）` : "",
+    createdAt: now,
+    updatedAt: now
+  };
+  orders.unshift(copy);
+  persistOrders();
+  setFormData(copy);
+  isDirty = false;
+  updateStatus();
+  renderOrderList();
+  showToast("複製しました");
+}
+
+function deleteCurrent() {
+  const index = orders.findIndex((order) => order.id === currentId);
+  if (index < 0) {
+    newOrder();
+    showToast("未保存の入力を消しました");
+    return;
+  }
+  const order = orders[index];
+  const label = order.customerName || order.productName || "この注文";
+  if (!confirm(`${label}を削除しますか？`)) return;
+  orders.splice(index, 1);
+  persistOrders();
+  if (orders.length) {
+    currentId = orders[0].id;
+    setFormData(orders[0]);
+  } else {
+    currentId = createId();
+    form.reset();
+    photoData = { insidePhoto: "", packagePhoto: "" };
+    updatePhotoThumbs();
+    updatePreview();
+  }
+  isDirty = false;
+  updateStatus();
+  renderOrderList();
+  showToast("削除しました");
+}
+
+function resetInputs() {
+  if (!confirm("現在の入力内容をリセットしますか？保存済みデータは削除されません。")) return;
+  form.reset();
+  photoData = { insidePhoto: "", packagePhoto: "" };
+  isDirty = true;
+  updatePhotoThumbs();
+  updatePreview();
+  updateStatus();
+}
+
+function selectOrder(id) {
+  const order = orders.find((item) => item.id === id);
+  if (!order) return;
+  currentId = id;
+  setFormData(order);
+  isDirty = false;
+  updateStatus();
+  renderOrderList();
+}
+
+function renderOrderList() {
+  countLabel.textContent = `${orders.length}件`;
+  orderList.innerHTML = "";
+  if (!orders.length) {
+    orderList.innerHTML = '<div class="empty-list">保存した注文はまだありません。</div>';
+    return;
+  }
+  orders.forEach((order) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `order-item${order.id === currentId ? " active" : ""}`;
+    button.innerHTML = `
+      <div class="order-title">${escapeHtml(order.customerName || order.productName || "名称未入力")}</div>
+      <div class="order-meta">${escapeHtml(formatDate(order.deliveryDate))} ${escapeHtml(formatTime(order.deliveryTime))} / ${escapeHtml(order.productName || "商品未入力")}</div>
+    `;
+    button.addEventListener("click", () => selectOrder(order.id));
+    orderList.appendChild(button);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function markDirty() {
+  isDirty = true;
+  updatePreview();
+  updateStatus();
+}
+
+function updateStatus() {
+  const saved = orders.find((order) => order.id === currentId);
+  saveStatus.textContent = isDirty ? "未保存の変更あり" : saved ? "保存済み" : "新規入力";
+}
+
+function setPreviewText(name, text) {
+  document.querySelectorAll(`[data-preview="${name}"]`).forEach((el) => {
+    el.textContent = text;
+  });
+}
+
+function updatePreview() {
+  const data = getFormData();
+  document.getElementById("previewCreated").textContent = `作成日：${todayText()}`;
+  setPreviewText("customerName", valueOrDefault(data.customerName));
+  setPreviewText("deliveryDate", formatDate(data.deliveryDate));
+  setPreviewText("deliveryTime", formatTime(data.deliveryTime));
+  setPreviewText("productName", valueOrDefault(data.productName));
+  setPreviewText("quantity", data.quantity ? `${data.quantity}個` : "未入力");
+  setPreviewText("materialType", `材料の種類：${valueOrDefault(data.materialType)}`);
+  setPreviewText("expirySticker", `消費期限シール：${valueOrDefault(data.expirySticker)}`);
+  setPreviewText("noshi", `のし：${valueOrDefault(data.noshi)}`);
+  setPreviewText("rubberBand", `輪ゴム：${valueOrDefault(data.rubberBand)}`);
+  setPreviewText("sorting", `仕分け：${valueOrDefault(data.sorting)}`);
+  setPreviewText("chopsticksType", `箸の種類：${valueOrDefault(data.chopsticksType)}`);
+  setPreviewText("chopsticksMethod", `箸の付け方：${valueOrDefault(data.chopsticksMethod)}`);
+  setPreviewText("notes", valueOrDefault(data.notes));
+  updatePreviewImage("insidePreview", "insidePlaceholder", photoData.insidePhoto);
+  updatePreviewImage("packagePreview", "packagePlaceholder", photoData.packagePhoto);
+  requestAnimationFrame(fitPreviewText);
+}
+
+function updatePreviewImage(imageId, placeholderId, source) {
+  const image = document.getElementById(imageId);
+  const placeholder = document.getElementById(placeholderId);
+  if (source) {
+    image.src = source;
+    image.style.display = "block";
+    placeholder.style.display = "none";
+  } else {
+    image.removeAttribute("src");
+    image.style.display = "none";
+    placeholder.style.display = "block";
+  }
+}
+
+function updatePhotoThumbs() {
+  setThumb("insideThumb", photoData.insidePhoto);
+  setThumb("packageThumb", photoData.packagePhoto);
+}
+
+function setThumb(id, source) {
+  const image = document.getElementById(id);
+  if (source) {
+    image.src = source;
+    image.style.display = "block";
+  } else {
+    image.removeAttribute("src");
+    image.style.display = "none";
+  }
+}
+
+function compressImage(file, maxWidth = 1200, maxHeight = 900, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("画像を読み込めませんでした"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("画像の形式を確認してください"));
+      image.onload = () => {
+        const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handlePhotoInput(event, targetKey) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const maxWidth = targetKey === "insidePhoto" ? 1400 : 900;
+    const maxHeight = targetKey === "insidePhoto" ? 1000 : 700;
+    photoData[targetKey] = await compressImage(file, maxWidth, maxHeight);
+    event.target.value = "";
+    isDirty = true;
+    updatePhotoThumbs();
+    updatePreview();
+    updateStatus();
+    showToast("写真を読み込みました");
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
+function fitTextElement(element, baseSize, minSize) {
+  element.style.fontSize = `${baseSize}px`;
+  let size = baseSize;
+  while (size > minSize && element.scrollHeight > element.clientHeight + 1) {
+    size -= 0.5;
+    element.style.fontSize = `${size}px`;
+  }
+}
+
+function fitPreviewText() {
+  fitTextElement(document.querySelector('[data-preview="materialType"]'), 14.5, 8.5);
+  fitTextElement(document.querySelector('[data-preview="notes"]'), 13, 8);
+  [
+    "expirySticker",
+    "noshi",
+    "rubberBand",
+    "sorting",
+    "chopsticksType",
+    "chopsticksMethod"
+  ].forEach((name) => {
+    document.querySelectorAll(`[data-preview="${name}"]`).forEach((element) => {
+      fitTextElement(element, 13, 8);
+    });
+  });
+}
+
+function init() {
+  if (orders.length) {
+    setFormData(orders[0]);
+  } else {
+    setFormData({});
+  }
+
+  fields.forEach((name) => {
+    document.getElementById(name).addEventListener("input", markDirty);
+    document.getElementById(name).addEventListener("change", markDirty);
+  });
+
+  document.getElementById("insidePhotoInput").addEventListener("change", (event) => handlePhotoInput(event, "insidePhoto"));
+  document.getElementById("packagePhotoInput").addEventListener("change", (event) => handlePhotoInput(event, "packagePhoto"));
+  document.getElementById("clearInsidePhoto").addEventListener("click", () => {
+    photoData.insidePhoto = "";
+    markDirty();
+    updatePhotoThumbs();
+  });
+  document.getElementById("clearPackagePhoto").addEventListener("click", () => {
+    photoData.packagePhoto = "";
+    markDirty();
+    updatePhotoThumbs();
+  });
+
+  document.getElementById("saveBtn").addEventListener("click", saveCurrent);
+  document.getElementById("newBtn").addEventListener("click", newOrder);
+  document.getElementById("copyBtn").addEventListener("click", duplicateOrder);
+  document.getElementById("deleteBtn").addEventListener("click", deleteCurrent);
+  document.getElementById("resetBtn").addEventListener("click", resetInputs);
+  document.getElementById("printBtn").addEventListener("click", () => window.print());
+  document.getElementById("printBtnTop").addEventListener("click", () => window.print());
+  window.addEventListener("beforeprint", fitPreviewText);
+
+  renderOrderList();
+  updatePreview();
+  updateStatus();
+}
+
+init();
+</script>
+</body>
+</html>
