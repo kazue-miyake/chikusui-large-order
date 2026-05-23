@@ -751,8 +751,11 @@ textarea {
           <button id="newBtn" class="secondary" type="button">新規</button>
           <button id="copyBtn" class="secondary" type="button">複製</button>
           <button id="resetBtn" class="secondary" type="button">入力リセット</button>
+          <button id="exportBtn" class="secondary" type="button">書き出し</button>
+          <button id="importBtn" class="secondary" type="button">読み込み</button>
           <button id="deleteBtn" class="danger" type="button">削除</button>
         </div>
+        <input id="importFileInput" type="file" accept="application/json,.json" hidden>
         <p class="hint">PDFは「印刷/PDF」からプリンターの保存先でPDFを選ぶと作成できます。</p>
       </div>
     </div>
@@ -1068,6 +1071,86 @@ function saveCurrent() {
   showToast("保存しました");
 }
 
+function safeFileName(value) {
+  return valueOrBlank(value)
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 40) || "order";
+}
+
+function exportCurrentOrder() {
+  const order = buildSavedOrder(orders.find((item) => item.id === currentId) || {});
+  const payload = {
+    app: "chikusui-large-order",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    order
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const name = safeFileName(order.customerName || order.productName);
+  link.href = url;
+  link.download = `大口注文_${name}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("注文データを書き出しました");
+}
+
+function importOrderData(data) {
+  const imported = data && data.order ? data.order : data;
+  if (!imported || typeof imported !== "object") {
+    throw new Error("読み込める注文データではありません");
+  }
+
+  const now = new Date().toISOString();
+  const order = {
+    id: imported.id || createId(),
+    createdAt: imported.createdAt || now,
+    updatedAt: now,
+    insidePhoto: imported.insidePhoto || "",
+    packagePhoto: imported.packagePhoto || ""
+  };
+  fields.forEach((name) => {
+    order[name] = imported[name] || "";
+  });
+
+  const existingIndex = orders.findIndex((item) => item.id === order.id);
+  if (existingIndex >= 0) {
+    orders.splice(existingIndex, 1, order);
+  } else {
+    orders.unshift(order);
+  }
+  currentId = order.id;
+  setFormData(order);
+  persistOrders();
+  isDirty = false;
+  updateStatus();
+  renderOrderList();
+  showToast("注文データを読み込みました");
+}
+
+function importOrderFile(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onerror = () => alert("ファイルを読み込めませんでした");
+  reader.onload = () => {
+    try {
+      importOrderData(JSON.parse(reader.result));
+    } catch (error) {
+      alert(error.message || "注文データの形式を確認してください");
+    }
+  };
+  reader.readAsText(file, "utf-8");
+}
+
 function newOrder() {
   currentId = createId();
   photoData = { insidePhoto: "", packagePhoto: "" };
@@ -1345,6 +1428,9 @@ function init() {
   document.getElementById("saveBtn").addEventListener("click", saveCurrent);
   document.getElementById("newBtn").addEventListener("click", newOrder);
   document.getElementById("copyBtn").addEventListener("click", duplicateOrder);
+  document.getElementById("exportBtn").addEventListener("click", exportCurrentOrder);
+  document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFileInput").click());
+  document.getElementById("importFileInput").addEventListener("change", importOrderFile);
   document.getElementById("deleteBtn").addEventListener("click", deleteCurrent);
   document.getElementById("resetBtn").addEventListener("click", resetInputs);
   document.getElementById("printBtn").addEventListener("click", () => window.print());
