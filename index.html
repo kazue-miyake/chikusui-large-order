@@ -616,8 +616,9 @@ textarea {
     top: 0;
     left: 0;
     right: 0;
-    width: 100%;
-    height: 272mm;
+    width: 194mm;
+    max-width: 100%;
+    height: 252mm;
     min-height: 0;
     padding: 0;
     margin: 0;
@@ -632,52 +633,64 @@ textarea {
     page-break-inside: avoid;
   }
 
-  .paper-title { height: 10mm; padding-bottom: 2mm; min-height: 0; }
+  .paper-title { height: 9mm; padding-bottom: 1.5mm; min-height: 0; }
 
-  .paper-title h3 { font-size: 23px; }
-  .paper-date { font-size: 12px; }
+  .paper-title h3 { font-size: 21px; }
+  .paper-date { font-size: 11px; }
   .basic-info {
-    height: 28mm;
+    height: 24mm;
     border-width: 1.5px;
-    margin-top: 2mm;
-    margin-bottom: 2mm;
+    margin-top: 1.5mm;
+    margin-bottom: 1.5mm;
   }
-  .info-cell { min-height: 0; padding: 2px 6px; }
-  .cell-label { font-size: 10.5px; }
-  .cell-value { font-size: 20px; }
+  .info-cell {
+    min-height: 0;
+    padding: 1px 5px;
+    align-content: start;
+    overflow: hidden;
+  }
+  .cell-label { font-size: 9.5px; line-height: 1.1; }
+  .cell-value {
+    font-size: 16px;
+    line-height: 1.08;
+    max-height: 16mm;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .main-photo {
     display: grid;
-    grid-template-rows: 8mm 111mm;
-    height: 119mm;
+    grid-template-rows: 7mm 90mm;
+    height: 97mm;
     min-height: 0;
-    margin-bottom: 2mm;
+    margin-bottom: 1.5mm;
     overflow: hidden;
   }
   .main-photo .block-title {
-    height: 8mm;
-    font-size: 14px;
-    padding: 2mm 8px 0;
+    height: 7mm;
+    font-size: 12.5px;
+    padding: 1.5mm 8px 0;
     overflow: hidden;
   }
   .main-photo .photo-stage {
-    height: 111mm;
+    height: 90mm;
     min-height: 0;
     overflow: hidden;
   }
   .main-photo .photo-stage img {
     width: 100%;
-    height: 111mm;
-    max-height: 111mm;
+    height: 90mm;
+    max-height: 90mm;
     object-fit: contain;
   }
   .photo-stage { height: auto; min-height: 0; }
   .detail-row {
     display: grid;
-    height: 74mm;
+    height: 62mm;
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr) 52mm;
+    grid-template-columns: minmax(0, 1fr) 48mm;
     gap: 5px;
-    margin-bottom: 2mm;
+    margin-bottom: 1.5mm;
   }
   .detail-panel,
   .package-panel,
@@ -685,45 +698,45 @@ textarea {
     min-height: 0;
     overflow: hidden;
   }
-  .block-title { font-size: 13px; padding: 4px 8px; }
+  .block-title { font-size: 12px; padding: 3px 7px; }
   .material-box {
-    height: 32mm;
+    height: 27mm;
     min-height: 0;
     overflow: hidden;
-    font-size: 14.5px;
+    font-size: 12.5px;
     font-weight: 800;
-    line-height: 1.25;
+    line-height: 1.18;
     padding: 3px 6px;
   }
   .check-grid {
-    height: 34mm;
+    height: 29mm;
     overflow: hidden;
   }
-  .check-item { min-height: 0; height: 11.33mm; font-size: 13px; font-weight: 800; padding: 2px 5px; }
-  .checkbox { width: 12px; height: 12px; border-width: 1.5px; }
-  .package-photo { height: 45mm; min-height: 0; }
-  .package-photo .photo-stage { height: 36mm; min-height: 0; }
+  .check-item { min-height: 0; height: 9.66mm; font-size: 11.5px; font-weight: 800; padding: 1px 5px; }
+  .checkbox { width: 10px; height: 10px; border-width: 1.5px; }
+  .package-photo { height: 38mm; min-height: 0; }
+  .package-photo .photo-stage { height: 30mm; min-height: 0; }
   .notes-panel {
     display: block;
-    height: 18mm;
-    margin-bottom: 2mm;
+    height: 16mm;
+    margin-bottom: 1.5mm;
   }
   .notes-text {
-    height: 11mm;
+    height: 10mm;
     min-height: 0;
     overflow: hidden;
-    font-size: 13px;
+    font-size: 11.5px;
     font-weight: 800;
-    line-height: 1.25;
+    line-height: 1.18;
     padding: 3px 6px;
   }
-  .print-footer { height: 16mm; }
+  .print-footer { height: 13mm; }
   .sign-cell {
     min-height: 0;
-    height: 16mm;
-    font-size: 14px;
+    height: 13mm;
+    font-size: 12px;
     font-weight: 900;
-    padding: 4px;
+    padding: 3px;
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -1292,6 +1305,7 @@ function showToast(message) {
 }
 
 function fitTextElement(element, baseSize, minSize) {
+  if (!element) return;
   element.style.fontSize = `${baseSize}px`;
   let size = baseSize;
   while (size > minSize && element.scrollHeight > element.clientHeight + 1) {
@@ -1301,6 +1315,9 @@ function fitTextElement(element, baseSize, minSize) {
 }
 
 function fitPreviewText() {
+  document.querySelectorAll(".basic-info .cell-value").forEach((element) => {
+    fitTextElement(element, 16, 8);
+  });
   fitTextElement(document.querySelector('[data-preview="materialType"]'), 14.5, 8.5);
   fitTextElement(document.querySelector('[data-preview="notes"]'), 13, 8);
   [
