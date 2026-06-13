@@ -637,7 +637,7 @@ textarea {
   .paper-title h3 { font-size: 23px; }
   .paper-date { font-size: 12px; }
   .basic-info {
-    height: 28mm;
+    height: 42mm;
     border-width: 1.5px;
     margin-top: 2mm;
     margin-bottom: 2mm;
@@ -647,8 +647,8 @@ textarea {
   .cell-value { font-size: 20px; }
   .main-photo {
     display: grid;
-    grid-template-rows: 8mm 111mm;
-    height: 119mm;
+    grid-template-rows: 8mm 97mm;
+    height: 105mm;
     min-height: 0;
     margin-bottom: 2mm;
     overflow: hidden;
@@ -660,14 +660,14 @@ textarea {
     overflow: hidden;
   }
   .main-photo .photo-stage {
-    height: 111mm;
+    height: 97mm;
     min-height: 0;
     overflow: hidden;
   }
   .main-photo .photo-stage img {
     width: 100%;
-    height: 111mm;
-    max-height: 111mm;
+    height: 97mm;
+    max-height: 97mm;
     object-fit: contain;
   }
   .photo-stage { height: auto; min-height: 0; }
@@ -797,6 +797,19 @@ textarea {
             <input id="quantity" name="quantity" type="number" min="1" inputmode="numeric" placeholder="例：120">
           </div>
           <div class="field">
+            <label for="amount">金額</label>
+            <input id="amount" name="amount" inputmode="numeric" autocomplete="off" placeholder="例：120000">
+          </div>
+          <div class="field">
+            <label for="teaOption">お茶</label>
+            <select id="teaOption" name="teaOption">
+              <option value="">選択してください</option>
+              <option>パック茶付き</option>
+              <option>ペット茶付き</option>
+              <option>お茶無し</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="expirySticker">消費期限シール</label>
             <select id="expirySticker" name="expirySticker">
               <option value="">選択してください</option>
@@ -892,6 +905,14 @@ textarea {
             <span class="cell-label">個数</span>
             <span class="cell-value" data-preview="quantity">未入力</span>
           </div>
+          <div class="info-cell">
+            <span class="cell-label">金額</span>
+            <span class="cell-value" data-preview="amount">未入力</span>
+          </div>
+          <div class="info-cell wide">
+            <span class="cell-label">お茶</span>
+            <span class="cell-value" data-preview="teaOption">未入力</span>
+          </div>
         </div>
 
         <section class="main-photo">
@@ -958,6 +979,8 @@ const fields = [
   "deliveryTime",
   "productName",
   "quantity",
+  "amount",
+  "teaOption",
   "materialType",
   "expirySticker",
   "noshi",
@@ -1010,6 +1033,14 @@ function formatDate(value) {
 
 function formatTime(value) {
   return value || "未入力";
+}
+
+function formatAmount(value) {
+  const text = valueOrBlank(value);
+  if (!text) return "未入力";
+  const numeric = text.replace(/[^\d]/g, "");
+  if (!numeric) return text;
+  return `¥${Number(numeric).toLocaleString("ja-JP")}`;
 }
 
 function valueOrBlank(value) {
@@ -1284,6 +1315,8 @@ function updatePreview() {
   setPreviewText("deliveryTime", formatTime(data.deliveryTime));
   setPreviewText("productName", valueOrDefault(data.productName));
   setPreviewText("quantity", data.quantity ? `${data.quantity}個` : "未入力");
+  setPreviewText("amount", formatAmount(data.amount));
+  setPreviewText("teaOption", valueOrDefault(data.teaOption));
   setPreviewText("materialType", `材料の種類：${valueOrDefault(data.materialType)}`);
   setPreviewText("expirySticker", `消費期限シール：${valueOrDefault(data.expirySticker)}`);
   setPreviewText("noshi", `のし：${valueOrDefault(data.noshi)}`);
