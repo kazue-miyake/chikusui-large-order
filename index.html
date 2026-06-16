@@ -996,6 +996,7 @@ textarea {
 <script>
 const STORAGE_KEY = "chikusui_large_order_instructions_v1";
 const SHEETS_API_URL_KEY = "chikusui_large_order_sheets_api_url";
+const DEFAULT_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbx6dpYtDnvBGi29fBv-9kW26ukK72Y0oKqHwnPO0bK1BRx5Qr-WHqsc2jQnLgcBEoCoZw/exec";
 const MIGRATED_KEY = "chikusui_large_order_sheets_migrated_v1";
 const form = document.getElementById("orderForm");
 const saveStatus = document.getElementById("saveStatus");
@@ -1048,7 +1049,7 @@ function persistOrders() {
 }
 
 function getSheetsApiUrl() {
-  return (localStorage.getItem(SHEETS_API_URL_KEY) || "").trim();
+  return (localStorage.getItem(SHEETS_API_URL_KEY) || DEFAULT_SHEETS_API_URL).trim();
 }
 
 function isSheetsEnabled() {
