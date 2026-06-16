@@ -109,6 +109,17 @@ header h1 {
   gap: 8px;
 }
 
+.sync-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sync-url {
+  font-size: 12px;
+}
+
 button {
   border: 0;
   border-radius: 6px;
@@ -763,6 +774,22 @@ textarea {
 
     <div class="panel">
       <div class="panel-head">
+        <h2>Google Sheets連携</h2>
+      </div>
+      <div class="panel-body">
+        <label for="sheetsApiUrl">Apps Script Web App URL</label>
+        <input id="sheetsApiUrl" class="sync-url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+        <div class="sync-row">
+          <button id="saveApiUrlBtn" class="secondary" type="button">URL保存</button>
+          <button id="syncLocalBtn" class="secondary" type="button">端末データ移行</button>
+          <button id="reloadSheetsBtn" class="secondary" type="button">再読込</button>
+        </div>
+        <p class="hint" id="syncStatus">URL未設定の場合はこの端末内に保存します。</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <h2>保存した注文</h2>
         <span class="hint" id="countLabel">0件</span>
       </div>
@@ -968,11 +995,15 @@ textarea {
 
 <script>
 const STORAGE_KEY = "chikusui_large_order_instructions_v1";
+const SHEETS_API_URL_KEY = "chikusui_large_order_sheets_api_url";
+const MIGRATED_KEY = "chikusui_large_order_sheets_migrated_v1";
 const form = document.getElementById("orderForm");
 const saveStatus = document.getElementById("saveStatus");
 const orderList = document.getElementById("orderList");
 const countLabel = document.getElementById("countLabel");
 const toast = document.getElementById("toast");
+const sheetsApiUrlInput = document.getElementById("sheetsApiUrl");
+const syncStatus = document.getElementById("syncStatus");
 
 const fields = [
   "customerName",
@@ -992,16 +1023,17 @@ const fields = [
   "notes"
 ];
 
-let orders = loadOrders();
+let orders = loadLocalOrders();
 let currentId = orders[0]?.id || createId();
 let photoData = { insidePhoto: "", packagePhoto: "" };
 let isDirty = false;
+let isLoadingRemote = false;
 
 function createId() {
   return `order-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function loadOrders() {
+function loadLocalOrders() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
@@ -1013,6 +1045,208 @@ function loadOrders() {
 
 function persistOrders() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+}
+
+function getSheetsApiUrl() {
+  return (localStorage.getItem(SHEETS_API_URL_KEY) || "").trim();
+}
+
+function isSheetsEnabled() {
+  return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(getSheetsApiUrl());
+}
+
+function setBusy(isBusy, message = "") {
+  isLoadingRemote = isBusy;
+  document.getElementById("saveBtn").disabled = isBusy;
+  document.getElementById("deleteBtn").disabled = isBusy;
+  document.getElementById("syncLocalBtn").disabled = isBusy;
+  document.getElementById("reloadSheetsBtn").disabled = isBusy;
+  if (message) syncStatus.textContent = message;
+}
+
+function updateSyncStatus() {
+  const localCount = loadLocalOrders().length;
+  if (isSheetsEnabled()) {
+    syncStatus.textContent = `Sheets連携中 / 端末内データ ${localCount}件`;
+  } else {
+    syncStatus.textContent = `URL未設定のため端末内に保存中 / 端末内データ ${localCount}件`;
+  }
+}
+
+function sheetsJsonp(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    if (!isSheetsEnabled()) {
+      reject(new Error("Apps Script Web App URLを設定してください"));
+      return;
+    }
+    const callbackName = `largeOrderCallback_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const url = new URL(getSheetsApiUrl());
+    url.searchParams.set("action", action);
+    url.searchParams.set("callback", callbackName);
+    url.searchParams.set("t", Date.now().toString());
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+
+    const script = document.createElement("script");
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Google Sheetsから応答がありません"));
+    }, 20000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      script.remove();
+      delete window[callbackName];
+    }
+
+    window[callbackName] = (response) => {
+      cleanup();
+      if (response && response.ok) {
+        resolve(response);
+      } else {
+        reject(new Error(response?.error || "Google Sheets処理に失敗しました"));
+      }
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Google Sheetsへ接続できません"));
+    };
+    script.src = url.toString();
+    document.body.appendChild(script);
+  });
+}
+
+function postSheetsAction(payload) {
+  return new Promise((resolve, reject) => {
+    if (!isSheetsEnabled()) {
+      reject(new Error("Apps Script Web App URLを設定してください"));
+      return;
+    }
+
+    const iframeName = `largeOrderPost_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.hidden = true;
+
+    const formElement = document.createElement("form");
+    formElement.method = "POST";
+    formElement.action = getSheetsApiUrl();
+    formElement.target = iframeName;
+    formElement.style.display = "none";
+
+    const input = document.createElement("input");
+    input.name = "payload";
+    input.value = JSON.stringify(payload);
+    formElement.appendChild(input);
+
+    let submitted = false;
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 3500);
+
+    function cleanup() {
+      clearTimeout(timer);
+      iframe.remove();
+      formElement.remove();
+    }
+
+    iframe.onload = () => {
+      if (!submitted) return;
+      cleanup();
+      resolve();
+    };
+    iframe.onerror = () => {
+      cleanup();
+      reject(new Error("Google Sheetsへ送信できません"));
+    };
+
+    document.body.appendChild(iframe);
+    document.body.appendChild(formElement);
+    submitted = true;
+    formElement.submit();
+  });
+}
+
+async function refreshOrdersFromSheets() {
+  if (!isSheetsEnabled()) {
+    orders = loadLocalOrders();
+    currentId = orders[0]?.id || currentId || createId();
+    if (orders.length) setFormData(orders.find((item) => item.id === currentId) || orders[0]);
+    renderOrderList();
+    updateStatus();
+    updateSyncStatus();
+    return;
+  }
+
+  setBusy(true, "Google Sheetsから読込中...");
+  try {
+    const response = await sheetsJsonp("list");
+    orders = response.orders || [];
+    const selected = orders.find((item) => item.id === currentId) || orders[0];
+    if (selected) {
+      currentId = selected.id;
+      setFormData(selected);
+    } else {
+      currentId = createId();
+      setFormData({});
+    }
+    isDirty = false;
+    renderOrderList();
+    updateStatus();
+    syncStatus.textContent = `Google Sheetsから${orders.length}件読み込みました`;
+  } catch (error) {
+    syncStatus.textContent = error.message;
+    alert(error.message);
+  } finally {
+    setBusy(false);
+    updateSyncStatus();
+  }
+}
+
+function saveApiUrl() {
+  const value = sheetsApiUrlInput.value.trim();
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(value)) {
+    alert("Apps ScriptのWeb App URL（https://script.google.com/macros/s/.../exec）を入力してください");
+    return;
+  }
+  localStorage.setItem(SHEETS_API_URL_KEY, value);
+  updateSyncStatus();
+  refreshOrdersFromSheets();
+}
+
+async function syncLocalOrdersToSheets() {
+  if (!isSheetsEnabled()) {
+    alert("先にApps Script Web App URLを保存してください");
+    return;
+  }
+
+  const localOrders = loadLocalOrders();
+  if (!localOrders.length) {
+    showToast("移行する端末データはありません");
+    return;
+  }
+
+  if (!confirm(`この端末に保存されている${localOrders.length}件をGoogle Sheetsへ移行しますか？同じIDは上書きされます。`)) {
+    return;
+  }
+
+  setBusy(true, "端末データをGoogle Sheetsへ移行中...");
+  try {
+    for (const order of localOrders) {
+      await postSheetsAction({ action: "save", order });
+    }
+    localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
+    await refreshOrdersFromSheets();
+    showToast("端末データを移行しました");
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    setBusy(false);
+    updateSyncStatus();
+  }
 }
 
 function todayText() {
@@ -1087,10 +1321,26 @@ function buildSavedOrder(existing = {}) {
   };
 }
 
-function saveCurrent() {
+async function saveCurrent() {
   const existingIndex = orders.findIndex((order) => order.id === currentId);
   const existing = existingIndex >= 0 ? orders[existingIndex] : {};
   const saved = buildSavedOrder(existing);
+
+  if (isSheetsEnabled()) {
+    setBusy(true, "Google Sheetsへ保存中...");
+    try {
+      await postSheetsAction({ action: "save", order: saved });
+      await refreshOrdersFromSheets();
+      showToast("Google Sheetsへ保存しました");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setBusy(false);
+      updateSyncStatus();
+    }
+    return;
+  }
+
   if (existingIndex >= 0) {
     orders.splice(existingIndex, 1, saved);
   } else {
@@ -1101,6 +1351,7 @@ function saveCurrent() {
   updateStatus();
   renderOrderList();
   showToast("保存しました");
+  updateSyncStatus();
 }
 
 function safeFileName(value) {
@@ -1133,7 +1384,7 @@ function exportCurrentOrder() {
   showToast("注文データを書き出しました");
 }
 
-function importOrderData(data) {
+async function importOrderData(data) {
   const imported = data && data.order ? data.order : data;
   if (!imported || typeof imported !== "object") {
     throw new Error("読み込める注文データではありません");
@@ -1151,6 +1402,19 @@ function importOrderData(data) {
     order[name] = imported[name] || "";
   });
 
+  if (isSheetsEnabled()) {
+    setBusy(true, "Google Sheetsへ読み込みデータを保存中...");
+    try {
+      await postSheetsAction({ action: "save", order });
+      await refreshOrdersFromSheets();
+      showToast("注文データをGoogle Sheetsへ読み込みました");
+    } finally {
+      setBusy(false);
+      updateSyncStatus();
+    }
+    return;
+  }
+
   const existingIndex = orders.findIndex((item) => item.id === order.id);
   if (existingIndex >= 0) {
     orders.splice(existingIndex, 1, order);
@@ -1164,6 +1428,7 @@ function importOrderData(data) {
   updateStatus();
   renderOrderList();
   showToast("注文データを読み込みました");
+  updateSyncStatus();
 }
 
 function importOrderFile(event) {
@@ -1175,7 +1440,9 @@ function importOrderFile(event) {
   reader.onerror = () => alert("ファイルを読み込めませんでした");
   reader.onload = () => {
     try {
-      importOrderData(JSON.parse(reader.result));
+      importOrderData(JSON.parse(reader.result)).catch((error) => {
+        alert(error.message || "注文データの形式を確認してください");
+      });
     } catch (error) {
       alert(error.message || "注文データの形式を確認してください");
     }
@@ -1194,7 +1461,7 @@ function newOrder() {
   renderOrderList();
 }
 
-function duplicateOrder() {
+async function duplicateOrder() {
   const base = getFormData();
   currentId = createId();
   const now = new Date().toISOString();
@@ -1205,6 +1472,22 @@ function duplicateOrder() {
     createdAt: now,
     updatedAt: now
   };
+
+  if (isSheetsEnabled()) {
+    setBusy(true, "複製をGoogle Sheetsへ保存中...");
+    try {
+      await postSheetsAction({ action: "save", order: copy });
+      await refreshOrdersFromSheets();
+      showToast("複製しました");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setBusy(false);
+      updateSyncStatus();
+    }
+    return;
+  }
+
   orders.unshift(copy);
   persistOrders();
   setFormData(copy);
@@ -1212,9 +1495,10 @@ function duplicateOrder() {
   updateStatus();
   renderOrderList();
   showToast("複製しました");
+  updateSyncStatus();
 }
 
-function deleteCurrent() {
+async function deleteCurrent() {
   const index = orders.findIndex((order) => order.id === currentId);
   if (index < 0) {
     newOrder();
@@ -1224,6 +1508,22 @@ function deleteCurrent() {
   const order = orders[index];
   const label = order.customerName || order.productName || "この注文";
   if (!confirm(`${label}を削除しますか？`)) return;
+
+  if (isSheetsEnabled()) {
+    setBusy(true, "Google Sheetsから削除中...");
+    try {
+      await postSheetsAction({ action: "delete", id: order.id });
+      await refreshOrdersFromSheets();
+      showToast("削除しました");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setBusy(false);
+      updateSyncStatus();
+    }
+    return;
+  }
+
   orders.splice(index, 1);
   persistOrders();
   if (orders.length) {
@@ -1240,6 +1540,7 @@ function deleteCurrent() {
   updateStatus();
   renderOrderList();
   showToast("削除しました");
+  updateSyncStatus();
 }
 
 function resetInputs() {
@@ -1299,7 +1600,8 @@ function markDirty() {
 
 function updateStatus() {
   const saved = orders.find((order) => order.id === currentId);
-  saveStatus.textContent = isDirty ? "未保存の変更あり" : saved ? "保存済み" : "新規入力";
+  const savedLabel = isSheetsEnabled() ? "Sheets保存済み" : "保存済み";
+  saveStatus.textContent = isDirty ? "未保存の変更あり" : saved ? savedLabel : "新規入力";
 }
 
 function setPreviewText(name, text) {
@@ -1435,6 +1737,8 @@ function fitPreviewText() {
 }
 
 function init() {
+  sheetsApiUrlInput.value = getSheetsApiUrl();
+
   if (orders.length) {
     setFormData(orders[0]);
   } else {
@@ -1467,6 +1771,9 @@ function init() {
   document.getElementById("importFileInput").addEventListener("change", importOrderFile);
   document.getElementById("deleteBtn").addEventListener("click", deleteCurrent);
   document.getElementById("resetBtn").addEventListener("click", resetInputs);
+  document.getElementById("saveApiUrlBtn").addEventListener("click", saveApiUrl);
+  document.getElementById("syncLocalBtn").addEventListener("click", syncLocalOrdersToSheets);
+  document.getElementById("reloadSheetsBtn").addEventListener("click", refreshOrdersFromSheets);
   document.getElementById("printBtn").addEventListener("click", () => window.print());
   document.getElementById("printBtnTop").addEventListener("click", () => window.print());
   window.addEventListener("beforeprint", fitPreviewText);
@@ -1474,6 +1781,10 @@ function init() {
   renderOrderList();
   updatePreview();
   updateStatus();
+  updateSyncStatus();
+  if (isSheetsEnabled()) {
+    refreshOrdersFromSheets();
+  }
 }
 
 init();
