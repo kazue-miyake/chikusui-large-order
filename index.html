@@ -1239,12 +1239,34 @@ function todayText() {
 }
 
 function formatDate(value) {
-  if (!value) return "未入力";
-  const [year, month, day] = value.split("-");
+  const normalized = normalizeDateValue(value);
+  if (!normalized) return "未入力";
+  const [year, month, day] = normalized.split("-");
   if (!year || !month || !day) return value;
   const date = new Date(Number(year), Number(month) - 1, Number(day));
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
   return `${Number(month)}/${Number(day)}（${weekdays[date.getDay()]}）`;
+}
+
+function normalizeDateValue(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  const simple = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (simple) {
+    return `${simple[1]}-${simple[2].padStart(2, "0")}-${simple[3].padStart(2, "0")}`;
+  }
+  const slash = text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (slash) {
+    return `${slash[1]}-${slash[2].padStart(2, "0")}-${slash[3].padStart(2, "0")}`;
+  }
+  const date = new Date(text);
+  if (!Number.isNaN(date.getTime())) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  return "";
 }
 
 function formatTime(value) {
@@ -1282,7 +1304,9 @@ function getFormData() {
 
 function setFormData(data = {}) {
   fields.forEach((name) => {
-    document.getElementById(name).value = data[name] || "";
+    document.getElementById(name).value = name === "deliveryDate"
+      ? normalizeDateValue(data[name])
+      : data[name] || "";
   });
   photoData = {
     insidePhoto: data.insidePhoto || "",
