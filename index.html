@@ -1120,54 +1120,34 @@ function sheetsJsonp(action, params = {}) {
 }
 
 function postSheetsAction(payload) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     if (!isSheetsEnabled()) {
       reject(new Error("Apps Script Web App URLを設定してください"));
       return;
     }
 
-    const iframeName = `largeOrderPost_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    const iframe = document.createElement("iframe");
-    iframe.name = iframeName;
-    iframe.hidden = true;
-
-    const formElement = document.createElement("form");
-    formElement.method = "POST";
-    formElement.action = getSheetsApiUrl();
-    formElement.target = iframeName;
-    formElement.style.display = "none";
-
-    const input = document.createElement("input");
-    input.name = "payload";
-    input.value = JSON.stringify(payload);
-    formElement.appendChild(input);
-
-    let submitted = false;
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, 3500);
-
-    function cleanup() {
-      clearTimeout(timer);
-      iframe.remove();
-      formElement.remove();
-    }
-
-    iframe.onload = () => {
-      if (!submitted) return;
-      cleanup();
-      resolve();
-    };
-    iframe.onerror = () => {
-      cleanup();
+    try {
+      const formData = new FormData();
+      formData.append("payload", JSON.stringify(payload));
+      await fetch(getSheetsApiUrl(), {
+        method: "POST",
+        mode: "no-cors",
+        body: formData
+      });
+      setTimeout(() => {
+        resolve();
+      }, 2500);
+    } catch (error) {
       reject(new Error("Google Sheetsへ送信できません"));
-    };
+    }
+  });
+}
 
-    document.body.appendChild(iframe);
-    document.body.appendChild(formElement);
-    submitted = true;
-    formElement.submit();
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, ms);
   });
 }
 
