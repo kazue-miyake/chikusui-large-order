@@ -209,7 +209,7 @@ function storePhotoIfNeeded_(order, fieldName) {
   const blob = Utilities.newBlob(bytes, mimeType, `${order.id}_${fieldName}_${Date.now()}.${extension}`);
   const file = getPhotoFolder_().createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+  return `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w1400`;
 }
 
 function getPhotoFolder_() {
