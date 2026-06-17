@@ -763,8 +763,8 @@ textarea {
           <button id="newBtn" class="secondary" type="button">新規</button>
           <button id="copyBtn" class="secondary" type="button">複製</button>
           <button id="resetBtn" class="secondary" type="button">入力リセット</button>
-          <button id="exportBtn" class="secondary" type="button">書き出し</button>
-          <button id="importBtn" class="secondary" type="button">読み込み</button>
+          <button id="exportBtn" class="secondary" type="button">JSON書き出し</button>
+          <button id="importBtn" class="secondary" type="button">JSON読み込み</button>
           <button id="deleteBtn" class="danger" type="button">削除</button>
         </div>
         <input id="importFileInput" type="file" accept="application/json,.json" hidden>
@@ -782,7 +782,7 @@ textarea {
         <div class="sync-row">
           <button id="saveApiUrlBtn" class="secondary" type="button">URL保存</button>
           <button id="syncLocalBtn" class="secondary" type="button">端末データ移行</button>
-          <button id="reloadSheetsBtn" class="secondary" type="button">再読込</button>
+          <button id="reloadSheetsBtn" class="secondary" type="button">Sheets再読込</button>
         </div>
         <p class="hint" id="syncStatus">URL未設定の場合はこの端末内に保存します。</p>
       </div>
@@ -1334,7 +1334,7 @@ async function saveCurrent() {
   isDirty = false;
   updateStatus();
   renderOrderList();
-  showToast("保存しました");
+  showToast("端末内に保存しました（Sheets未連携）");
   updateSyncStatus();
 }
 
