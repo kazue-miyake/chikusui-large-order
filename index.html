@@ -1134,13 +1134,20 @@ function postSheetsAction(payload) {
         mode: "no-cors",
         body
       });
+      const waitMs = payloadHasEmbeddedPhotos(payload) ? 15000 : 4000;
       setTimeout(() => {
         resolve();
-      }, 2500);
+      }, waitMs);
     } catch (error) {
       reject(new Error("Google Sheetsへ送信できません"));
     }
   });
+}
+
+function payloadHasEmbeddedPhotos(payload) {
+  const order = payload?.order || {};
+  return String(order.insidePhoto || "").startsWith("data:image/")
+    || String(order.packagePhoto || "").startsWith("data:image/");
 }
 
 function delay(ms) {
@@ -1336,8 +1343,15 @@ async function saveCurrent() {
     try {
       await postSheetsAction({ action: "save", order: saved });
       await refreshOrdersFromSheets();
-      if (!orders.some((order) => order.id === saved.id)) {
+      const savedResult = orders.find((order) => order.id === saved.id);
+      if (!savedResult) {
         throw new Error("保存結果をGoogle Sheetsで確認できませんでした。少し待って再読込してください。");
+      }
+      if (String(saved.insidePhoto || "").startsWith("data:image/") && !savedResult.insidePhoto) {
+        throw new Error("中身写真の保存結果を確認できませんでした。もう一度保存してください。");
+      }
+      if (String(saved.packagePhoto || "").startsWith("data:image/") && !savedResult.packagePhoto) {
+        throw new Error("外装写真の保存結果を確認できませんでした。もう一度保存してください。");
       }
       showToast("Google Sheetsへ保存しました");
     } catch (error) {
@@ -1648,7 +1662,7 @@ function updatePreviewImage(imageId, placeholderId, source) {
   const image = document.getElementById(imageId);
   const placeholder = document.getElementById(placeholderId);
   if (source) {
-    image.src = source;
+    image.src = getDisplayImageUrl(source);
     image.style.display = "block";
     placeholder.style.display = "none";
   } else {
@@ -1666,12 +1680,21 @@ function updatePhotoThumbs() {
 function setThumb(id, source) {
   const image = document.getElementById(id);
   if (source) {
-    image.src = source;
+    image.src = getDisplayImageUrl(source);
     image.style.display = "block";
   } else {
     image.removeAttribute("src");
     image.style.display = "none";
   }
+}
+
+function getDisplayImageUrl(source) {
+  const text = String(source || "");
+  const idMatch = text.match(/[?&]id=([^&]+)/) || text.match(/\/d\/([^/]+)/);
+  if (idMatch && text.includes("drive.google.com")) {
+    return `https://drive.google.com/thumbnail?id=${encodeURIComponent(idMatch[1])}&sz=w1400`;
+  }
+  return text;
 }
 
 function compressImage(file, maxWidth = 1200, maxHeight = 900, quality = 0.78) {
