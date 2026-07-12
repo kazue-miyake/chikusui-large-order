@@ -92,6 +92,7 @@ header h1 {
   gap: 10px;
   background: #fafbf9;
   border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
 }
 
 .panel-head h2 {
@@ -405,7 +406,7 @@ textarea {
 
 .detail-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 245px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 10px;
 }
 
@@ -454,13 +455,13 @@ textarea {
 }
 
 .package-photo {
-  height: 220px;
   display: grid;
   grid-template-rows: auto 1fr;
+  align-self: stretch;
 }
 
 .package-photo .photo-stage {
-  min-height: 170px;
+  min-height: 220px;
 }
 
 .package-photo .placeholder {
@@ -687,7 +688,7 @@ textarea {
     display: grid;
     height: 74mm;
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr) 52mm;
+    grid-template-columns: minmax(0, 1fr) 65mm;
     gap: 5px;
     margin-bottom: 2mm;
   }
@@ -713,8 +714,8 @@ textarea {
   }
   .check-item { min-height: 0; height: 11.33mm; font-size: 13px; font-weight: 800; padding: 2px 5px; }
   .checkbox { width: 12px; height: 12px; border-width: 1.5px; }
-  .package-photo { height: 45mm; min-height: 0; }
-  .package-photo .photo-stage { height: 36mm; min-height: 0; }
+  .package-photo { height: 74mm; min-height: 0; }
+  .package-photo .photo-stage { height: 65mm; min-height: 0; }
   .notes-panel {
     display: block;
     height: 18mm;
@@ -791,6 +792,11 @@ textarea {
     <div class="panel">
       <div class="panel-head">
         <h2>保存した注文</h2>
+        <select id="orderSort" style="min-height: 28px; font-size: 12px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px;">
+          <option value="delivery">配達日順</option>
+          <option value="updated">更新日順</option>
+          <option value="created">作成日順</option>
+        </select>
         <span class="hint" id="countLabel">0件</span>
       </div>
       <div class="panel-body">
@@ -835,7 +841,9 @@ textarea {
               <option>パック茶付き</option>
               <option>ペット茶付き</option>
               <option>お茶無し</option>
+              <option>その他（自由入力）</option>
             </select>
+            <input id="teaOptionOther" name="teaOptionOther" placeholder="お茶の詳細を入力" style="display: none; margin-top: 6px;" autocomplete="off">
           </div>
           <div class="field">
             <label for="expirySticker">消費期限シール</label>
@@ -845,6 +853,7 @@ textarea {
               <option>貼らない</option>
               <option>時間入力あり</option>
             </select>
+            <input id="expiryTime" name="expiryTime" placeholder="時刻を入力（例：18:00）" style="display: none; margin-top: 6px;" autocomplete="off">
           </div>
           <div class="field-wide">
             <label>写真</label>
@@ -1014,8 +1023,10 @@ const fields = [
   "quantity",
   "amount",
   "teaOption",
+  "teaOptionOther",
   "materialType",
   "expirySticker",
+  "expiryTime",
   "noshi",
   "rubberBand",
   "sorting",
@@ -1048,6 +1059,20 @@ function persistOrders() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
 }
 
+function checkStorageQuota() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) || "";
+    const sizeBytes = new Blob([raw]).size;
+    const sizeMB = sizeBytes / (1024 * 1024);
+    if (sizeMB > 4) {
+      const orderCount = orders.length;
+      showToast(`⚠️ 端末データが${sizeMB.toFixed(1)}MBあります。古い注文を削除してください（${orderCount}件）`);
+      return true;
+    }
+    return false;
+  } catch { return false; }
+}
+
 function getSheetsApiUrl() {
   return (localStorage.getItem(SHEETS_API_URL_KEY) || DEFAULT_SHEETS_API_URL).trim();
 }
@@ -1058,10 +1083,11 @@ function isSheetsEnabled() {
 
 function setBusy(isBusy, message = "") {
   isLoadingRemote = isBusy;
-  document.getElementById("saveBtn").disabled = isBusy;
-  document.getElementById("deleteBtn").disabled = isBusy;
-  document.getElementById("syncLocalBtn").disabled = isBusy;
-  document.getElementById("reloadSheetsBtn").disabled = isBusy;
+  const buttonIds = ["saveBtn", "deleteBtn", "syncLocalBtn", "reloadSheetsBtn", "newBtn", "copyBtn", "resetBtn", "exportBtn", "importBtn", "printBtn", "printBtnTop", "saveApiUrlBtn"];
+  buttonIds.forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = isBusy;
+  });
   if (message) syncStatus.textContent = message;
 }
 
@@ -1299,7 +1325,11 @@ function valueOrDefault(value, fallback = "未入力") {
 function getFormData() {
   const data = {};
   fields.forEach((name) => {
-    data[name] = document.getElementById(name).value;
+    let value = document.getElementById(name).value;
+    if (name === "amount") {
+      value = String(value).replace(/[^\d]/g, "");
+    }
+    data[name] = value;
   });
   return {
     id: currentId,
@@ -1311,15 +1341,22 @@ function getFormData() {
 
 function setFormData(data = {}) {
   fields.forEach((name) => {
-    document.getElementById(name).value = name === "deliveryDate"
-      ? normalizeDateValue(data[name])
-      : data[name] || "";
+    if (name === "deliveryDate") {
+      document.getElementById(name).value = normalizeDateValue(data[name]);
+    } else if (name === "amount") {
+      const raw = String(data[name] || "").replace(/[^\d]/g, "");
+      document.getElementById(name).value = raw ? "¥" + Number(raw).toLocaleString("ja-JP") : "";
+    } else {
+      document.getElementById(name).value = data[name] || "";
+    }
   });
   photoData = {
     insidePhoto: data.insidePhoto || "",
     packagePhoto: data.packagePhoto || ""
   };
   updatePhotoThumbs();
+  updateTeaOther();
+  updateExpiryTime();
   updatePreview();
 }
 
@@ -1355,7 +1392,18 @@ async function saveCurrent() {
       }
       showToast("Google Sheetsへ保存しました");
     } catch (error) {
-      alert(error.message);
+      const useLocal = confirm(`${error.message}\n\n端末内にバックアップ保存しますか？（後で移行できます）`);
+      if (useLocal) {
+        const existingIdx = orders.findIndex((o) => o.id === saved.id);
+        if (existingIdx >= 0) {
+          orders.splice(existingIdx, 1, saved);
+        } else {
+          orders.unshift(saved);
+        }
+        persistOrders();
+        checkStorageQuota();
+        showToast("⚠️ 端末内にのみ保存しました");
+      }
     } finally {
       setBusy(false);
       updateSyncStatus();
@@ -1374,6 +1422,7 @@ async function saveCurrent() {
   renderOrderList();
   showToast("端末内に保存しました（Sheets未連携）");
   updateSyncStatus();
+  checkStorageQuota();
 }
 
 function safeFileName(value) {
@@ -1478,6 +1527,8 @@ function newOrder() {
   form.reset();
   isDirty = false;
   updatePhotoThumbs();
+  updateTeaOther();
+  updateExpiryTime();
   updatePreview();
   updateStatus();
   renderOrderList();
@@ -1574,6 +1625,8 @@ function resetInputs() {
   photoData = { insidePhoto: "", packagePhoto: "" };
   isDirty = true;
   updatePhotoThumbs();
+  updateTeaOther();
+  updateExpiryTime();
   updatePreview();
   updateStatus();
 }
@@ -1589,13 +1642,25 @@ function selectOrder(id) {
 }
 
 function renderOrderList() {
+  const sortMode = document.getElementById("orderSort")?.value || "delivery";
+  const sorted = [...orders].sort((a, b) => {
+    if (sortMode === "delivery") {
+      const aD = normalizeDateValue(a.deliveryDate) || "9999-99-99";
+      const bD = normalizeDateValue(b.deliveryDate) || "9999-99-99";
+      return aD.localeCompare(bD);
+    }
+    if (sortMode === "updated") {
+      return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+    }
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
   countLabel.textContent = `${orders.length}件`;
   orderList.innerHTML = "";
-  if (!orders.length) {
+  if (!sorted.length) {
     orderList.innerHTML = '<div class="empty-list">保存した注文はまだありません。</div>';
     return;
   }
-  orders.forEach((order) => {
+  sorted.forEach((order) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `order-item${order.id === currentId ? " active" : ""}`;
@@ -1635,6 +1700,22 @@ function setPreviewText(name, text) {
   });
 }
 
+function updateTeaOther() {
+  const teaSelect = document.getElementById("teaOption");
+  const teaOther = document.getElementById("teaOptionOther");
+  if (!teaSelect || !teaOther) return;
+  teaOther.style.display = teaSelect.value === "その他（自由入力）" ? "block" : "none";
+  if (teaSelect.value !== "その他（自由入力）") teaOther.value = "";
+}
+
+function updateExpiryTime() {
+  const expirySelect = document.getElementById("expirySticker");
+  const expiryTimeInput = document.getElementById("expiryTime");
+  if (!expirySelect || !expiryTimeInput) return;
+  expiryTimeInput.style.display = expirySelect.value === "時間入力あり" ? "block" : "none";
+  if (expirySelect.value !== "時間入力あり") expiryTimeInput.value = "";
+}
+
 function updatePreview() {
   const data = getFormData();
   document.getElementById("previewCreated").textContent = `作成日：${todayText()}`;
@@ -1644,9 +1725,17 @@ function updatePreview() {
   setPreviewText("productName", valueOrDefault(data.productName));
   setPreviewText("quantity", data.quantity ? `${data.quantity}個` : "未入力");
   setPreviewText("amount", formatAmount(data.amount));
-  setPreviewText("teaOption", valueOrDefault(data.teaOption));
+  const teaVal = valueOrBlank(data.teaOption);
+  const teaOtherVal = valueOrBlank(data.teaOptionOther);
+  const teaDisplay = teaVal === "その他（自由入力）" && teaOtherVal ? teaOtherVal : valueOrDefault(data.teaOption);
+  setPreviewText("teaOption", teaDisplay);
   setPreviewText("materialType", `材料の種類：${valueOrDefault(data.materialType)}`);
-  setPreviewText("expirySticker", `消費期限シール：${valueOrDefault(data.expirySticker)}`);
+  const expiryVal = valueOrBlank(data.expirySticker);
+  const expiryTimeVal = valueOrBlank(data.expiryTime);
+  const expiryDisplay = expiryVal === "時間入力あり" && expiryTimeVal
+    ? `時間入力あり（${expiryTimeVal}）`
+    : valueOrDefault(data.expirySticker);
+  setPreviewText("expirySticker", `消費期限シール：${expiryDisplay}`);
   setPreviewText("noshi", `のし：${valueOrDefault(data.noshi)}`);
   setPreviewText("rubberBand", `輪ゴム：${valueOrDefault(data.rubberBand)}`);
   setPreviewText("sorting", `仕分け：${valueOrDefault(data.sorting)}`);
@@ -1784,6 +1873,20 @@ function init() {
     document.getElementById(name).addEventListener("change", markDirty);
   });
 
+  const amountInput = document.getElementById("amount");
+  amountInput.addEventListener("input", (e) => {
+    const raw = String(e.target.value).replace(/[^\d]/g, "");
+    e.target.value = raw ? "¥" + Number(raw).toLocaleString("ja-JP") : "";
+  });
+
+  const teaSelect = document.getElementById("teaOption");
+  teaSelect.addEventListener("change", updateTeaOther);
+
+  const expirySelect = document.getElementById("expirySticker");
+  expirySelect.addEventListener("change", updateExpiryTime);
+
+  document.getElementById("orderSort")?.addEventListener("change", renderOrderList);
+
   document.getElementById("insidePhotoInput").addEventListener("change", (event) => handlePhotoInput(event, "insidePhoto"));
   document.getElementById("packagePhotoInput").addEventListener("change", (event) => handlePhotoInput(event, "packagePhoto"));
   document.getElementById("clearInsidePhoto").addEventListener("click", () => {
@@ -1819,6 +1922,7 @@ function init() {
   if (isSheetsEnabled()) {
     refreshOrdersFromSheets();
   }
+  checkStorageQuota();
 }
 
 init();
